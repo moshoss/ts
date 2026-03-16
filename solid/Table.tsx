@@ -1,6 +1,7 @@
-import { For, Show } from 'solid-js'
+import { For, Show, createSignal } from 'solid-js'
 import {
   type ColumnDef,
+  type RowSelectionState,
   createSolidTable,
   getCoreRowModel,
   flexRender,
@@ -19,9 +20,14 @@ export interface TableProps<T> {
   data: T[]
   columns: ColumnDef<T, any>[]
   class?: string
+  onSelectionChange?: (rows: T[]) => void
 }
 
 export function Table<T>(props: TableProps<T>) {
+  const [rowSelection, setRowSelection] = createSignal<RowSelectionState>({})
+
+  const hasSelection = () => props.columns.some((c) => c.id === '__selection')
+
   const table = createSolidTable({
     get data() {
       return props.data
@@ -29,8 +35,25 @@ export function Table<T>(props: TableProps<T>) {
     get columns() {
       return props.columns
     },
+    state: {
+      get rowSelection() {
+        return rowSelection()
+      },
+    },
+    onRowSelectionChange: (updater) => {
+      const next = typeof updater === 'function' ? updater(rowSelection()) : updater
+      setRowSelection(next)
+      props.onSelectionChange?.(
+        Object.keys(next)
+          .filter((k) => next[k])
+          .map((k) => props.data[Number(k)])
+      )
+    },
     getCoreRowModel: getCoreRowModel(),
     columnResizeMode: 'onChange',
+    get enableRowSelection() {
+      return hasSelection()
+    },
   })
 
   return (
@@ -70,7 +93,7 @@ export function Table<T>(props: TableProps<T>) {
       <TableBody>
         <For each={table.getRowModel().rows}>
           {(row) => (
-            <TableRow>
+            <TableRow data-state={row.getIsSelected() ? 'selected' : undefined}>
               <For each={row.getVisibleCells()}>
                 {(cell) => (
                   <TableCell>
