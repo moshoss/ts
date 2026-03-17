@@ -16,17 +16,34 @@ import {
   TableCell,
 } from '~/components/ui/table'
 
+export interface TableRef {
+  clearSelection: () => void
+  deselectRow: (indexes: number[]) => void
+  getSelectedRows: () => RowSelectionState
+}
+
 export interface TableProps<T> {
   data: T[]
   columns: ColumnDef<T, any>[]
   class?: string
-  onSelectionChange?: (rows: T[]) => void
+  ref?: (api: TableRef) => void
+  onSelectionChange?: (indexes: number[]) => void
 }
 
 export function Table<T>(props: TableProps<T>) {
   const [rowSelection, setRowSelection] = createSignal<RowSelectionState>({})
 
   const hasSelection = () => props.columns.some((c) => c.id === '__selection')
+
+  props.ref?.({
+    clearSelection: () => setRowSelection({}),
+    deselectRow: (indexes: number[]) => {
+      const next = { ...rowSelection() }
+      indexes.forEach((i) => delete next[i])
+      setRowSelection(next)
+    },
+    getSelectedRows: () => rowSelection(),
+  })
 
   const table = createSolidTable({
     get data() {
@@ -43,11 +60,7 @@ export function Table<T>(props: TableProps<T>) {
     onRowSelectionChange: (updater) => {
       const next = typeof updater === 'function' ? updater(rowSelection()) : updater
       setRowSelection(next)
-      props.onSelectionChange?.(
-        Object.keys(next)
-          .filter((k) => next[k])
-          .map((k) => props.data[Number(k)])
-      )
+      props.onSelectionChange?.(Object.keys(next).filter((k) => next[k]).map(Number))
     },
     getCoreRowModel: getCoreRowModel(),
     columnResizeMode: 'onChange',
